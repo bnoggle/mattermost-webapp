@@ -6,6 +6,7 @@ import React from 'react';
 import {Redirect} from 'react-router-dom';
 import {FormattedMessage} from 'react-intl';
 import {Overlay, Tooltip} from 'react-bootstrap';
+import styled from 'styled-components';
 
 import {isEmail} from 'mattermost-redux/utils/helpers';
 
@@ -21,25 +22,32 @@ import ConfirmModal from 'components/confirm_modal.jsx';
 import SaveButton from 'components/save_button.jsx';
 import FormError from 'components/form_error.jsx';
 
-const divStyle = {
-    padding: '20px 20px 20px 184px',
-};
+const FieldLabel = styled.span`
+    font-size: 12px;
+    display: block;
+    font-weight: bold;
+    margin-top: 12px;
+`;
+
+const Input = styled.input`
+    height: 40px;
+    max-width: 320px;
+`;
 
 export default class SystemUserDetail extends React.Component {
-    static defaultProps = {
-        user: {
-            email: null,
-        },
-    }
-
     static propTypes = {
         user: PropTypes.object.isRequired,
         userId: PropTypes.string.isRequired,
-        setNavigationBlocked: PropTypes.bool,
         actions: PropTypes.shape({
             updateUserActive: PropTypes.func.isRequired,
             setNavigationBlocked: PropTypes.func.isRequired,
         }).isRequired,
+    }
+
+    static defaultProps = {
+        user: {
+            email: null,
+        },
     }
 
     constructor(props) {
@@ -113,14 +121,14 @@ export default class SystemUserDetail extends React.Component {
     }
 
     handleEmailChange = (e) => {
-        const emailChange = e.target.value !== this.props.user.email;
+        const emailChanged = e.target.value !== this.props.user.email;
         this.setState({
             user: {
                 email: e.target.value,
             },
-            saveNeeded: emailChange,
+            saveNeeded: emailChanged,
         });
-        this.props.setNavigationBlocked(true);
+        this.props.actions.setNavigationBlocked(emailChanged);
     }
 
     handleSubmit = (e) => {
@@ -152,7 +160,7 @@ export default class SystemUserDetail extends React.Component {
                 saveNeeded: false,
                 serverError: null,
             });
-            this.props.setNavigationBlocked(false);
+            this.props.actions.setNavigationBlocked(false);
         }
     }
 
@@ -252,8 +260,6 @@ export default class SystemUserDetail extends React.Component {
 
     render() {
         const {user} = this.props;
-        let firstLastNickname;
-        let position;
         let deactivateMemberModal;
         let currentRoles = (
             <FormattedMessage
@@ -262,12 +268,15 @@ export default class SystemUserDetail extends React.Component {
             />
         );
 
+        // TODO: get the user object if navigated to page directly
+        // for now, redirecting to parent page
+        if (!user.id) {
+            return (
+                <Redirect to={{pathname: '/admin_console/user_management/users'}}/>
+            );
+        }
+
         if (user.id) {
-            firstLastNickname = user.first_name + ' ' + user.last_name + ' • ' + user.nickname;
-            position = user.position ? user.position : '';
-            if (!user.nickname) {
-                firstLastNickname = user.first_name + ' ' + user.last_name;
-            }
             deactivateMemberModal = this.renderDeactivateMemberModal(user);
             if (user.delete_at > 0) {
                 currentRoles = (
@@ -287,12 +296,6 @@ export default class SystemUserDetail extends React.Component {
             }
         }
 
-        if (!user.id) {
-            return (
-                <Redirect to={{pathname: '/admin_console/user_management/users'}}/>
-            );
-        }
-
         return (
             <div className='wrapper--fixed'>
                 <div className='admin-console__header with-back'>
@@ -310,31 +313,38 @@ export default class SystemUserDetail extends React.Component {
                 <div className='admin-console__wrapper'>
                     <div className='admin-console__content'>
                         <AdminUserCard
-                            userFirstLastNickname={firstLastNickname}
-                            userId={user.id}
-                            userLastPictureUpdate={user.last_picture_update}
-                        >
-                            <div style={divStyle}>
-                                <h4>{position}</h4>
-                                <p><b>{'Email: '}</b></p>
-                                <input
-                                    type='text'
-                                    value={this.state.user.email}
-                                    onChange={this.handleEmailChange}
-                                />
-                                <p><b>{'Username: '}</b>{user.username}</p>
-                                <p><b>{'Authentication Method: '}</b>{user.mfa_active ? 'MFA' : 'Email'}</p>
-                                <p><b>{'Role: '}</b>{currentRoles}</p>
-                                <AdminButtonDefault
-                                    onClick={this.doPasswordReset}
-                                    className='admin-btn-default'
-                                >
-                                    {'Reset Password'}
-                                </AdminButtonDefault>
-                                {this.renderActivateDeactivate()}
-                                {this.renderRemoveMFA()}
-                            </div>
-                        </AdminUserCard>
+                            user={user}
+                            body={
+                                <React.Fragment>
+                                    <span>{user.position}</span>
+                                    <FieldLabel>{Utils.localizeMessage('admin.userManagement.userDetail.email', 'Email')}</FieldLabel>
+                                    <Input
+                                        className='form-control'
+                                        type='text'
+                                        value={this.state.user.email}
+                                        onChange={this.handleEmailChange}
+                                    />
+                                    <FieldLabel>{Utils.localizeMessage('admin.userManagement.userDetail.username', 'Username')}</FieldLabel>
+                                    <p>{user.username}</p>
+                                    <FieldLabel>{Utils.localizeMessage('admin.userManagement.userDetail.authenticationMethod', 'Authentication Method')}</FieldLabel>
+                                    <p>{user.mfa_active ? 'MFA' : 'Email'}</p>
+                                    <FieldLabel>{Utils.localizeMessage('admin.userManagement.userDetail.role', 'Role')}</FieldLabel>
+                                    <p>{currentRoles}</p>
+                                </React.Fragment>
+                            }
+                            footer={
+                                <React.Fragment>
+                                    <AdminButtonDefault
+                                        onClick={this.doPasswordReset}
+                                        className='admin-btn-default'
+                                    >
+                                        {'Reset Password'}
+                                    </AdminButtonDefault>
+                                    {this.renderActivateDeactivate()}
+                                    {this.renderRemoveMFA()}
+                                </React.Fragment>
+                            }
+                        />
                     </div>
                 </div>
                 <div className='admin-console-save'>
